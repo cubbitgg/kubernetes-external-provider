@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: local-disk-node-scanner
+  namespace: kube-system
+  labels:
+    app: local-disk-node-scanner
+spec:
+  selector:
+    matchLabels:
+      app: local-disk-node-scanner
+  template:
+    metadata:
+      labels:
+        app: local-disk-node-scanner
+    spec:
+      serviceAccountName: local-disk-node-scanner
+      hostPID: false
+      hostNetwork: false
+      # Run on all nodes including control-plane if disks may be attached there.
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: node-scanner
+          image: ghcr.io/cubbitgg/local-disk-node-scanner:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          args:
+            - --scan-interval=60s
+            - --mount-base=/mnt/cubbit
+            - --fs-type=ext4
+            - --min-size=52428800
+          volumeMounts:
+            - name: dev
+              mountPath: /dev
+            - name: mnt-cubbit
+              mountPath: /mnt/cubbit
+              mountPropagation: Bidirectional
+            - name: proc
+              mountPath: /proc
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: mnt-cubbit
+          hostPath:
+            path: /mnt/cubbit
+            type: DirectoryOrCreate
+        - name: proc
+          hostPath:
+            path: /proc

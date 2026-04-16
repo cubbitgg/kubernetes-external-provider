@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-disk
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: agent.cubbit.io/local-disk
+# WaitForFirstConsumer ensures the provisioner knows which node the pod is
+# scheduled to before creating the PV. This is required for this provisioner.
+volumeBindingMode: WaitForFirstConsumer
+# Retain keeps the disk data when the PVC is deleted, allowing reuse.
+reclaimPolicy: Retain

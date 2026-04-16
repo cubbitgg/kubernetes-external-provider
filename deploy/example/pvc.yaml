@@ -1,0 +1,21 @@
+# Example PVC that requests a specific disk by UUID.
+# Replace the UUID value with the actual filesystem UUID of your disk
+# (find it with: lsblk -o NAME,UUID or blkid).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-data
+  namespace: default
+  annotations:
+    # The UUID of the disk you want this PVC to use.
+    # The node-scanner must have discovered and mounted this disk.
+    agent.cubbit.io/disk-uuid: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+spec:
+  storageClassName: local-disk
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # This value is advisory; the provisioner uses the actual disk size
+      # reported by the node-scanner if available.
+      storage: 100Gi

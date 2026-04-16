@@ -7,23 +7,23 @@ Built with [`sig-storage-lib-external-provisioner/v13`](https://github.com/kuber
 ## Architecture
 
 ```
-Worker Node                           Control Plane
-┌──────────────────────────┐         ┌──────────────────────────────────────┐
-│  NodeScanner DaemonSet   │         │                                      │
-│  ┌────────────────────┐  │         │  ┌──────────────────────────────┐    │
-│  │  driver-init       │  │         │  │  Provisioner Deployment       │    │
+Worker Node                            Control Plane
+┌──────────────────────────┐          ┌──────────────────────────────────────┐
+│  NodeScanner DaemonSet   │          │                                      │
+│  ┌────────────────────┐  │          │  ┌──────────────────────────────┐    │
+│  │  driver-init       │  │          │  │  Provisioner Deployment      │    │
 │  │  driver-mounter    │──┼────────▶│  │  (external-provisioner)      │    │
-│  │  node-scanner      │  │ labels/ │  └──────────────────────────────┘    │
-│  └────────────────────┘  │ annots  │                                      │
-│                          │         │  ┌──────────────────────────────┐    │
-│  Disks                   │         │  │  Scheduler Extender          │    │
-│  /dev/sdb (uuid=abc...)  │         │  │  (POST /filter)              │    │
-│  /dev/sdc (uuid=def...)  │         │  └──────────────────────────────┘    │
-└──────────────────────────┘         │                ▲                     │
-                                     │  ┌─────────────┴────────────────┐    │
-                                     │  │  kube-scheduler              │    │
-                                     │  └──────────────────────────────┘    │
-                                     └──────────────────────────────────────┘
+│  │  node-scanner      │  │ labels/  │  └──────────────────────────────┘    │
+│  └────────────────────┘  │ annots   │                                      │
+│                          │          │  ┌──────────────────────────────┐    │
+│  Disks                   │          │  │  Scheduler Extender          │    │
+│  /dev/sdb (uuid=abc...)  │          │  │  (POST /filter)              │    │
+│  /dev/sdc (uuid=def...)  │          │  └──────────────────────────────┘    │
+└──────────────────────────┘          │                ▲                     │
+                                      │  ┌─────────────┴────────────────┐    │
+                                      │  │  kube-scheduler              │    │
+                                      │  └──────────────────────────────┘    │
+                                      └──────────────────────────────────────┘
 ```
 
 ### Components

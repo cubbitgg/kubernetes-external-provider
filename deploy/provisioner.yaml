@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-disk-provisioner
+  namespace: kube-system
+  labels:
+    app: local-disk-provisioner
+spec:
+  # Run 2 replicas for HA; leader election (enabled in code) ensures only one
+  # provisioner actively processes claims at a time.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: local-disk-provisioner
+  template:
+    metadata:
+      labels:
+        app: local-disk-provisioner
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: local-disk-provisioner
+      containers:
+        - name: provisioner
+          image: ghcr.io/cubbitgg/local-disk-provisioner:latest
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: metrics
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30

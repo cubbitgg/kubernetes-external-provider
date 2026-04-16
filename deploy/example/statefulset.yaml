@@ -1,0 +1,29 @@
+# Example StatefulSet using a UUID-based local disk.
+# The scheduler extender will ensure the pod lands on the node that holds the
+# disk with the UUID specified in the PVC annotation.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cubbit-agent
+  namespace: default
+spec:
+  serviceName: cubbit-agent
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cubbit-agent
+  template:
+    metadata:
+      labels:
+        app: cubbit-agent
+    spec:
+      containers:
+        - name: agent
+          image: ghcr.io/cubbitgg/agent:latest
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: agent-data
