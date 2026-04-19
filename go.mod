@@ -3,7 +3,7 @@ module github.com/cubbitgg/kubernetes-external-provider
 go 1.25.0
 
 require (
-	github.com/cubbitgg/cmd-drivers v0.0.0-20260331211603-2e785ed9a74c
+	github.com/cubbitgg/cmd-drivers v0.0.0-20260419142358-363b1d012633
 	github.com/rs/zerolog v1.34.0
 	k8s.io/api v0.34.0
 	k8s.io/apimachinery v0.34.0

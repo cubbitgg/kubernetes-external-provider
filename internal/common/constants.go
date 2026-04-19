@@ -30,4 +30,10 @@ const (
 
 	// DefaultMinSize is the minimum disk size (bytes) to consider (50 MiB).
 	DefaultMinSize = uint64(52428800)
+
+	// DefaultLabel is the filesystem label applied to disks formatted by this
+	// provisioner. Must satisfy fsutils.ValidateLabel: uppercase A-Z and 0-9
+	// only, max 10 chars. Used to prevent accidentally mounting unlabelled or
+	// foreign disks (ManagedOnly mode).
+	DefaultLabel = "CUBBITK8S"
 )

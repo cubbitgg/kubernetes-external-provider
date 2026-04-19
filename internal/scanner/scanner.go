@@ -85,6 +85,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 		services.InitConfig{
 			FSType:  s.config.FSType,
 			MinSize: s.config.MinSize,
+			Label:   common.DefaultLabel,
 		},
 		lsblk,
 		providers.NewFormatProvider(),
@@ -118,13 +119,16 @@ func (s *Scanner) scan(ctx context.Context) error {
 		}
 		mntSvc := services.NewDeviceMounter(
 			services.MountConfig{
-				UUID:       dev.UUID,
-				MountPoint: s.config.MountBase,
-				FSType:     s.config.FSType,
+				UUID:         dev.UUID,
+				MountPoint:   s.config.MountBase,
+				FSType:       s.config.FSType,
+				ManagedOnly:  true,
+				RequireLabel: common.DefaultLabel,
 			},
 			providers.NewDeviceResolver(lsblk),
 			providers.NewK8sMountProvider(),
 			lsblk,
+			providers.NewUnfilteredMountInfoProvider(),
 		)
 		if err := mntSvc.Mount(ctx); err != nil {
 			log.Error().Err(err).Str("uuid", dev.UUID).Msg("Failed to mount device")

@@ -3,8 +3,8 @@ github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6r
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/cubbitgg/cmd-drivers v0.0.0-20260331211603-2e785ed9a74c h1:jBMbzMMzYrNXZoTeUBF+t31ylsZ2F02o6QtNVftXmIk=
-github.com/cubbitgg/cmd-drivers v0.0.0-20260331211603-2e785ed9a74c/go.mod h1:Bc/LAXzCUswfZvxIv8j9srYc81F+NxEoJ7K9xFZRuEM=
+github.com/cubbitgg/cmd-drivers v0.0.0-20260419142358-363b1d012633 h1:zsRQR7LVdwY7pdhQo9EgZST3zXL1EwVjJKlVz0LV1F8=
+github.com/cubbitgg/cmd-drivers v0.0.0-20260419142358-363b1d012633/go.mod h1:Bc/LAXzCUswfZvxIv8j9srYc81F+NxEoJ7K9xFZRuEM=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=

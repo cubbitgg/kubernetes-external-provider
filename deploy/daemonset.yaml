@@ -35,7 +35,8 @@ spec:
             - --scan-interval=60s
             - --mount-base=/mnt/cubbit
             - --fs-type=ext4
-            - --min-size=52428800
+            - --min-size=16106127360 # 15 GB in bytes
+            - --log-level=debug
           volumeMounts:
             - name: dev
               mountPath: /dev
@@ -44,6 +45,9 @@ spec:
               mountPropagation: Bidirectional
             - name: proc
               mountPath: /proc
+              readOnly: true
+            - name: run-udev
+              mountPath: /run/udev
               readOnly: true
           resources:
             requests:
@@ -63,3 +67,7 @@ spec:
         - name: proc
           hostPath:
             path: /proc
+        - name: run-udev
+          hostPath:
+            path: /run/udev
+            type: Directory

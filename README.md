@@ -59,6 +59,21 @@ Worker Node                            Control Plane
 - Nodes with ext4-formatted block devices (or raw devices that `driver-init` will format)
 - Access to modify the kube-scheduler configuration (see [Scheduler Setup](#scheduler-setup))
 
+### Node requirements
+
+The `node-scanner` DaemonSet runs privileged and requires the following tools to be present on every worker node:
+
+| Tool | Purpose | Typically provided by |
+|------|---------|-----------------------|
+| `lsblk` | Enumerate block devices and read their UUIDs, sizes, and filesystem types | `util-linux` (standard on all major distros) |
+| `udevadm` | Resolve kernel device paths and trigger udev rule re-evaluation after format | `udev` / `systemd-udev` (standard on systemd-based distros; may be absent on minimal/embedded images) |
+| `mkfs.<fstype>` | Format raw disks (e.g. `mkfs.ext4` when `--fs-type=ext4`) | `e2fsprogs` for ext4; `xfsprogs` for xfs; match the package to your chosen `--fs-type` |
+| `mount` | Mount formatted disks under `/mnt/cubbit/<uuid>` | `util-linux` (standard on all major distros) |
+
+The DaemonSet mounts `/run/udev` from the host (read-only) so the scanner can access the udev database without requiring `udevadm` to be installed inside the container image. **The host itself must have `udevadm` running** (`systemd-udevd` or equivalent) for the socket and database under `/run/udev` to exist.
+
+> **Minimal node images (e.g. Alpine-based, Talos):** Verify that `lsblk` and a udev-compatible daemon are present before deploying. On Alpine, install `util-linux` and `eudev`. On Talos, udev is built in.
+
 ## Deployment
 
 ### 1. Apply all manifests
@@ -74,6 +89,19 @@ kubectl apply -f deploy/scheduler-extender.yaml
 ### 2. Scheduler Setup
 
 The scheduler extender must be registered with the kube-scheduler via a `KubeSchedulerConfiguration`. The config is in `deploy/scheduler-config.yaml`.
+
+**For K3s clusters (no host access required):**
+
+```bash
+kubectl apply -f deploy/scheduler-init-job.yaml
+```
+
+This runs a privileged Job on the control-plane node that:
+1. Writes the `KubeSchedulerConfiguration` to `/var/lib/rancher/k3s/server/scheduler-config.yaml`
+2. Adds the `kube-scheduler-arg` to `/etc/rancher/k3s/config.yaml` (creates or appends — existing config is preserved)
+3. Restarts the K3s service via `nsenter` so the embedded scheduler picks up the new config
+
+> **Note:** The K3s restart will terminate the Job pod before it can log "done". That is expected — the file writes complete before the restart. The Job may show as `Failed`; verify the config landed with `kubectl exec -n kube-system <any-pod> -- cat /var/lib/rancher/k3s/server/scheduler-config.yaml` or by checking that the extender pods are running.
 
 **For kubeadm clusters:**
 
@@ -137,19 +165,23 @@ See `deploy/example/` for a complete PVC + StatefulSet example.
 | `--scan-interval` | `60s` | How often to re-scan for block devices |
 | `--mount-base` | `/mnt/cubbit` | Base directory for mounts (`<base>/<uuid>`) |
 | `--fs-type` | `ext4` | Filesystem type to look for / format with |
-| `--min-size` | `52428800` | Minimum device size in bytes (50 MiB) |
+| `--min-size` | `52428800` | Minimum device size in bytes (50 MiB); `deploy/daemonset.yaml` overrides this to `16106127360` (15 GB) |
+| `--log-level` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 `NODE_NAME` must be set via the downward API (already done in `deploy/daemonset.yaml`).
 
 ### provisioner flags
 
-Standard `klog` flags are accepted (e.g. `-v=4` for verbose logging).
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--log-level` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 ### scheduler-extender flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--addr` | `:8888` | HTTP listen address |
+| `--log-level` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 ## Labels and Annotations
 
