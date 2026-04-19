@@ -7,11 +7,11 @@ import (
 	"net/http"
 
 	"github.com/cubbitgg/kubernetes-external-provider/internal/common"
+	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/klog/v2"
 )
 
 // The types below mirror the Kubernetes scheduler extender protocol.
@@ -42,11 +42,12 @@ type FailedNodesMap map[string]string
 type Extender struct {
 	client    kubernetes.Interface
 	pvcLister corelisters.PersistentVolumeClaimLister
+	log       zerolog.Logger
 }
 
 // NewExtender returns a new Extender.
-func NewExtender(client kubernetes.Interface, pvcLister corelisters.PersistentVolumeClaimLister) *Extender {
-	return &Extender{client: client, pvcLister: pvcLister}
+func NewExtender(client kubernetes.Interface, pvcLister corelisters.PersistentVolumeClaimLister, log zerolog.Logger) *Extender {
+	return &Extender{client: client, pvcLister: pvcLister, log: log}
 }
 
 // Filter handles POST /filter requests from the Kubernetes scheduler.
@@ -63,17 +64,17 @@ func (e *Extender) Filter(w http.ResponseWriter, r *http.Request) {
 
 	uuid, err := e.diskUUIDForPod(r.Context(), args.Pod)
 	if err != nil {
-		klog.ErrorS(err, "Failed to extract disk UUID from pod PVCs", "pod", args.Pod.Name)
+		e.log.Error().Err(err).Str("pod", args.Pod.Name).Msg("Failed to extract disk UUID from pod PVCs")
 		// Don't block scheduling on extender errors; pass all nodes through.
 		result := ExtenderFilterResult{Nodes: args.Nodes}
-		writeJSON(w, result)
+		writeJSON(e.log, w, result)
 		return
 	}
 
 	if uuid == "" {
 		// Pod has no UUID-based PVC; this extender has nothing to do.
 		result := ExtenderFilterResult{Nodes: args.Nodes}
-		writeJSON(w, result)
+		writeJSON(e.log, w, result)
 		return
 	}
 
@@ -91,9 +92,9 @@ func (e *Extender) Filter(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	klog.V(4).InfoS("Filter result", "uuid", uuid, "eligible", len(filtered.Items), "rejected", len(failed))
+	e.log.Debug().Str("uuid", uuid).Int("eligible", len(filtered.Items)).Int("rejected", len(failed)).Msg("Filter result")
 
-	writeJSON(w, ExtenderFilterResult{
+	writeJSON(e.log, w, ExtenderFilterResult{
 		Nodes:       filtered,
 		FailedNodes: failed,
 	})
@@ -127,9 +128,9 @@ func (e *Extender) diskUUIDForPod(ctx context.Context, pod *corev1.Pod) (string,
 	return "", nil
 }
 
-func writeJSON(w http.ResponseWriter, v interface{}) {
+func writeJSON(log zerolog.Logger, w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		klog.ErrorS(err, "Failed to write JSON response")
+		log.Error().Err(err).Msg("Failed to write JSON response")
 	}
 }

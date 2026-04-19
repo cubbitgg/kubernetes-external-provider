@@ -19,7 +19,7 @@ spec:
       serviceAccountName: local-disk-scheduler-extender
       containers:
         - name: extender
-          image: ghcr.io/cubbitgg/local-disk-scheduler-extender:latest
+          image: docker.io/gigiozzz/local-disk-scheduler-extender:latest
           imagePullPolicy: Always
           args:
             - --addr=:8888

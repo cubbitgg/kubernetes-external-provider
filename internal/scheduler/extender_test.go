@@ -9,6 +9,7 @@ import (
 
 	"github.com/cubbitgg/kubernetes-external-provider/internal/common"
 	"github.com/cubbitgg/kubernetes-external-provider/internal/scheduler"
+	"github.com/rs/zerolog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -85,7 +86,7 @@ func TestFilter_MatchingNode(t *testing.T) {
 		},
 	}
 
-	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc))
+	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc), zerolog.Nop())
 	result := callFilter(t, ext, buildFilterArgs(pod, nodes))
 
 	if len(result.Nodes.Items) != 1 || result.Nodes.Items[0].Name != "node-with-disk" {
@@ -117,7 +118,7 @@ func TestFilter_NoUUIDAnnotation_PassThrough(t *testing.T) {
 		},
 	}
 
-	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc))
+	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc), zerolog.Nop())
 	result := callFilter(t, ext, buildFilterArgs(pod, nodes))
 
 	if len(result.Nodes.Items) != 2 {
@@ -135,7 +136,7 @@ func TestFilter_NoPVCVolumes_PassThrough(t *testing.T) {
 		Spec:       corev1.PodSpec{Volumes: []corev1.Volume{{Name: "configmap-vol"}}},
 	}
 
-	ext := scheduler.NewExtender(fake.NewSimpleClientset(), makePVCLister())
+	ext := scheduler.NewExtender(fake.NewSimpleClientset(), makePVCLister(), zerolog.Nop())
 	result := callFilter(t, ext, buildFilterArgs(pod, nodes))
 
 	if len(result.Nodes.Items) != 1 {
@@ -170,7 +171,7 @@ func TestFilter_AllNodesRejected(t *testing.T) {
 		},
 	}
 
-	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc))
+	ext := scheduler.NewExtender(fake.NewSimpleClientset(pvc), makePVCLister(pvc), zerolog.Nop())
 	result := callFilter(t, ext, buildFilterArgs(pod, nodes))
 
 	if len(result.Nodes.Items) != 0 {

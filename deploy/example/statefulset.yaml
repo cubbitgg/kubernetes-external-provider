@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: agent
-          image: ghcr.io/cubbitgg/agent:latest
+          image: docker.io/cubbit/http-tester:latest
           volumeMounts:
             - name: data
               mountPath: /data

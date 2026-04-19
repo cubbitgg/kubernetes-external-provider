@@ -7,29 +7,31 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cubbitgg/cmd-drivers/logger"
 	"github.com/cubbitgg/kubernetes-external-provider/internal/provisioner"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/v13/controller"
 )
 
 func main() {
-	klog.InitFlags(nil)
+	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
+
+	log := logger.InitLogger(*logLevel)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		klog.ErrorS(err, "Failed to build in-cluster config")
+		log.Error().Err(err).Msg("Failed to build in-cluster config")
 		os.Exit(1)
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.ErrorS(err, "Failed to create Kubernetes client")
+		log.Error().Err(err).Msg("Failed to create Kubernetes client")
 		os.Exit(1)
 	}
 
@@ -46,6 +48,6 @@ func main() {
 		controller.ExponentialBackOffOnError(true),
 	)
 
-	klog.InfoS("Starting local-disk provisioner")
+	log.Info().Msg("Starting local-disk provisioner")
 	pc.Run(ctx)
 }

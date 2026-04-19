@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cubbitgg/cmd-drivers/fsutils"
+	"github.com/cubbitgg/cmd-drivers/logger"
 	"github.com/cubbitgg/cmd-drivers/providers"
 	"github.com/cubbitgg/cmd-drivers/services"
 	"github.com/cubbitgg/kubernetes-external-provider/internal/common"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
 )
 
 // DiskEntry is the value stored per UUID in the node annotation.
@@ -53,9 +53,11 @@ func New(config Config, client kubernetes.Interface) *Scanner {
 
 // Run starts the periodic scan loop. It blocks until ctx is cancelled.
 func (s *Scanner) Run(ctx context.Context) error {
+	log := logger.FromContext(ctx)
+
 	// Run immediately on start, then on every tick.
 	if err := s.scan(ctx); err != nil {
-		klog.ErrorS(err, "Initial scan failed")
+		log.Error().Err(err).Msg("Initial scan failed")
 	}
 
 	ticker := time.NewTicker(s.config.ScanInterval)
@@ -67,13 +69,14 @@ func (s *Scanner) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			if err := s.scan(ctx); err != nil {
-				klog.ErrorS(err, "Scan iteration failed")
+				log.Error().Err(err).Msg("Scan iteration failed")
 			}
 		}
 	}
 }
 
 func (s *Scanner) scan(ctx context.Context) error {
+	log := logger.FromContext(ctx)
 	lsblk := fsutils.NewLSBLK()
 	statfs := providers.NewStatfsProvider()
 
@@ -87,9 +90,9 @@ func (s *Scanner) scan(ctx context.Context) error {
 		providers.NewFormatProvider(),
 	)
 	if formatted, err := initSvc.Init(ctx); err != nil {
-		klog.ErrorS(err, "Disk initializer encountered errors")
+		log.Error().Err(err).Msg("Disk initializer encountered errors")
 	} else if len(formatted) > 0 {
-		klog.InfoS("Formatted new devices", "count", len(formatted), "devices", formatted)
+		log.Info().Int("count", len(formatted)).Strs("devices", formatted).Msg("Formatted new devices")
 	}
 
 	// 2. Mount any formatted-but-unmounted disks.
@@ -124,9 +127,9 @@ func (s *Scanner) scan(ctx context.Context) error {
 			lsblk,
 		)
 		if err := mntSvc.Mount(ctx); err != nil {
-			klog.ErrorS(err, "Failed to mount device", "uuid", dev.UUID)
+			log.Error().Err(err).Str("uuid", dev.UUID).Msg("Failed to mount device")
 		} else {
-			klog.InfoS("Mounted device", "uuid", dev.UUID, "mountBase", s.config.MountBase)
+			log.Info().Str("uuid", dev.UUID).Str("mountBase", s.config.MountBase).Msg("Mounted device")
 		}
 	}
 
@@ -152,7 +155,7 @@ func (s *Scanner) scan(ctx context.Context) error {
 	// 4. Warn about disks that were present last cycle but are now missing.
 	for uuid := range s.prevUUIDs {
 		if _, ok := currentUUIDs[uuid]; !ok {
-			klog.Warningf("Disk UUID %s previously seen on node %s is no longer visible", uuid, s.config.NodeName)
+			log.Warn().Str("uuid", uuid).Str("node", s.config.NodeName).Msg("Disk UUID previously seen on node is no longer visible")
 		}
 	}
 	s.prevUUIDs = currentUUIDs
@@ -171,7 +174,7 @@ func (s *Scanner) patchNode(ctx context.Context, diskMap map[string]DiskEntry, c
 		return fmt.Errorf("marshal disk map: %w", err)
 	}
 
-	labels := make(map[string]interface{}, len(currentUUIDs)+len(s.prevUUIDs))
+	labels := make(map[string]any, len(currentUUIDs)+len(s.prevUUIDs))
 	for uuid := range currentUUIDs {
 		labels[common.LabelUUIDPrefix+uuid] = "true"
 	}
@@ -182,8 +185,8 @@ func (s *Scanner) patchNode(ctx context.Context, diskMap map[string]DiskEntry, c
 		}
 	}
 
-	patch := map[string]interface{}{
-		"metadata": map[string]interface{}{
+	patch := map[string]any{
+		"metadata": map[string]any{
 			"labels": labels,
 			"annotations": map[string]string{
 				common.AnnotationDiskMap: string(diskMapJSON),
