@@ -1,6 +1,6 @@
 # Example StatefulSet using a UUID-based local disk.
-# The scheduler extender will ensure the pod lands on the node that holds the
-# disk with the UUID specified in the PVC annotation.
+# The admission webhook will inject the correct nodeAffinity so the pod lands
+# on the node that holds the disk specified in the PVC annotation.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

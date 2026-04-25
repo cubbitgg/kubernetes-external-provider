@@ -1,0 +1,97 @@
+---
+# ── Webhook Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-disk-webhook
+  namespace: kube-system
+  labels:
+    app: local-disk-webhook
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: local-disk-webhook
+  template:
+    metadata:
+      labels:
+        app: local-disk-webhook
+    spec:
+      serviceAccountName: local-disk-webhook
+      containers:
+        - name: webhook
+          image: docker.io/gigiozzz/local-disk-webhook:latest
+          args:
+            - --addr=:8443
+            - --self-sign
+          ports:
+            - name: https
+              containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+# ── Webhook Service ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-disk-webhook
+  namespace: kube-system
+spec:
+  selector:
+    app: local-disk-webhook
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+---
+# ── MutatingWebhookConfiguration ─────────────────────────────────────────────
+# caBundle starts empty; the webhook binary patches it with the self-signed CA
+# on startup (--self-sign flag). failurePolicy starts as Ignore for the same
+# reason and is switched to Fail once the caBundle is correctly configured.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: local-disk-webhook
+webhooks:
+  - name: disk-affinity.agent.cubbit.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Ignore
+    reinvocationPolicy: IfNeeded
+    clientConfig:
+      service:
+        name: local-disk-webhook
+        namespace: kube-system
+        path: /mutate
+        port: 443
+      caBundle: ""
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: Namespaced
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system"]
