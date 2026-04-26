@@ -93,10 +93,10 @@ func (wh *Webhook) mutate(ctx context.Context, req *admissionv1.AdmissionRequest
 		))
 	}
 
-	patch, err := buildNodeAffinityPatch(&pod, nodeName)
+	patch, err := buildNodeSelectorPatch(&pod, nodeName)
 	if err != nil {
-		wh.log.Error().Err(err).Str("pod", pod.Name).Msg("Failed to build node affinity patch")
-		return deny(req.UID, fmt.Sprintf("failed to build node affinity patch: %v", err))
+		wh.log.Error().Err(err).Str("pod", pod.Name).Msg("Failed to build nodeSelector patch")
+		return deny(req.UID, fmt.Sprintf("failed to build nodeSelector patch: %v", err))
 	}
 
 	wh.log.Info().
@@ -104,7 +104,7 @@ func (wh *Webhook) mutate(ctx context.Context, req *admissionv1.AdmissionRequest
 		Str("namespace", pod.Namespace).
 		Str("uuid", uuid).
 		Str("node", nodeName).
-		Msg("Injecting nodeAffinity into pod")
+		Msg("Injecting nodeSelector into pod")
 
 	pt := admissionv1.PatchTypeJSONPatch
 	return &admissionv1.AdmissionResponse{
@@ -157,91 +157,24 @@ func (wh *Webhook) findNodeForUUID(uuid string) (string, error) {
 	return nodes[0].Name, nil
 }
 
-// buildNodeAffinityPatch generates a RFC 6902 JSON patch that injects a nodeAffinity
-// constraint for the given node into the pod spec.
-//
-// nodeSelectorTerms are OR-ed, so appending a new term would LOOSEN existing constraints.
-// Instead, we AND our constraint by appending a matchExpression to each existing term.
-func buildNodeAffinityPatch(pod *corev1.Pod, nodeName string) ([]byte, error) {
-	expr := corev1.NodeSelectorRequirement{
-		Key:      "kubernetes.io/hostname",
-		Operator: corev1.NodeSelectorOpIn,
-		Values:   []string{nodeName},
-	}
-
+// buildNodeSelectorPatch generates a RFC 6902 JSON patch that sets kubernetes.io/hostname
+// in the pod's nodeSelector, pinning it to the given node.
+func buildNodeSelectorPatch(pod *corev1.Pod, nodeName string) ([]byte, error) {
 	var ops []patchOp
-	affinity := pod.Spec.Affinity
 
-	switch {
-	case affinity == nil:
+	if pod.Spec.NodeSelector == nil {
 		ops = append(ops, patchOp{
-			Op:   "add",
-			Path: "/spec/affinity",
-			Value: corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-							MatchExpressions: []corev1.NodeSelectorRequirement{expr},
-						}},
-					},
-				},
-			},
+			Op:    "add",
+			Path:  "/spec/nodeSelector",
+			Value: map[string]string{"kubernetes.io/hostname": nodeName},
 		})
-
-	case affinity.NodeAffinity == nil:
+	} else {
+		// '/' in a JSON Pointer key segment is escaped as '~1' (RFC 6901).
 		ops = append(ops, patchOp{
-			Op:   "add",
-			Path: "/spec/affinity/nodeAffinity",
-			Value: corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-						MatchExpressions: []corev1.NodeSelectorRequirement{expr},
-					}},
-				},
-			},
+			Op:    "add",
+			Path:  "/spec/nodeSelector/kubernetes.io~1hostname",
+			Value: nodeName,
 		})
-
-	case affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil:
-		ops = append(ops, patchOp{
-			Op:   "add",
-			Path: "/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution",
-			Value: corev1.NodeSelector{
-				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-					MatchExpressions: []corev1.NodeSelectorRequirement{expr},
-				}},
-			},
-		})
-
-	default:
-		terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-		if len(terms) == 0 {
-			// Required section exists but has no terms: create one.
-			ops = append(ops, patchOp{
-				Op:   "add",
-				Path: "/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms",
-				Value: []corev1.NodeSelectorTerm{{
-					MatchExpressions: []corev1.NodeSelectorRequirement{expr},
-				}},
-			})
-		} else {
-			// AND our expression into every existing term (append to each term's matchExpressions).
-			for i, term := range terms {
-				base := fmt.Sprintf("/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms/%d/matchExpressions", i)
-				if term.MatchExpressions == nil {
-					ops = append(ops, patchOp{
-						Op:    "add",
-						Path:  base,
-						Value: []corev1.NodeSelectorRequirement{expr},
-					})
-				} else {
-					ops = append(ops, patchOp{
-						Op:    "add",
-						Path:  base + "/-",
-						Value: expr,
-					})
-				}
-			}
-		}
 	}
 
 	return json.Marshal(ops)

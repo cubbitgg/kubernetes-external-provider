@@ -9,7 +9,7 @@ metadata:
   annotations:
     # The UUID of the disk you want this PVC to use.
     # The node-scanner must have discovered and mounted this disk.
-    agent.cubbit.io/disk-uuid: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    agent.cubbit.io/disk-uuid: "b4af204c-68ec-4387-88ed-1cd998ccf4aa"
 spec:
   storageClassName: local-disk
   accessModes:
@@ -18,4 +18,4 @@ spec:
     requests:
       # This value is advisory; the provisioner uses the actual disk size
       # reported by the node-scanner if available.
-      storage: 100Gi
+      storage: 18Gi

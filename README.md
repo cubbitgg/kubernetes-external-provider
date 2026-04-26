@@ -2,11 +2,11 @@
 
 Provisions local Kubernetes `PersistentVolumes` bound to a specific physical disk by UUID — without hardcoding node names. The system auto-discovers which node holds the disk and schedules pods there automatically.
 
-> Simpler than a full CSI driver, inspired by [local-path-provisioner](https://github.com/rancher/local-path-provisioner).
+> Simpler than a full CSI driver
 
 ## How it works
 
-1. A **DaemonSet** on each node scans for disks, mounts them under `/mnt/cubbit/<uuid>`, and labels the node.
+1. A **DaemonSet** on each node scans for disks, format and label them, execute mount of labeled disk under `/mnt/cubbit/<uuid>`, and add disk UUID topology information to Kubernetes nodes.
 2. When a pod needs a disk, a **mutating webhook** reads the UUID from the PVC annotation and injects the correct `nodeAffinity` into the pod spec.
 3. The **provisioner** creates the `PersistentVolume` pointing to the mounted disk path on that node.
 
@@ -14,7 +14,12 @@ No kube-scheduler configuration required — works on managed clusters (EKS, GKE
 
 ## Deploy
 
-**Prerequisites:** Kubernetes ≥ 1.29, nodes with block devices, `lsblk` available on hosts.
+**Prerequisites:** Kubernetes ≥ 1.29, nodes with block devices, and the following tools available on each node host:
+
+- `lsblk`
+- `mkfs.ext4`
+- `udevadm`
+- `mount`
 
 ```bash
 kubectl apply -f deploy/rbac.yaml

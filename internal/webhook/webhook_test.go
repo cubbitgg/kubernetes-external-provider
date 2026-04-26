@@ -103,8 +103,8 @@ func TestHandle_MatchingNode(t *testing.T) {
 	if len(ops) == 0 {
 		t.Fatal("expected at least one patch operation")
 	}
-	if ops[0]["path"] != "/spec/affinity" {
-		t.Errorf("expected patch path /spec/affinity, got %s", ops[0]["path"])
+	if ops[0]["path"] != "/spec/nodeSelector" {
+		t.Errorf("expected patch path /spec/nodeSelector, got %s", ops[0]["path"])
 	}
 }
 
@@ -178,7 +178,7 @@ func TestHandle_NoNodeFound_Rejected(t *testing.T) {
 	}
 }
 
-func TestHandle_ExistingNodeAffinity_Merged(t *testing.T) {
+func TestHandle_ExistingNodeSelector_Merged(t *testing.T) {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "my-pvc",
@@ -200,19 +200,7 @@ func TestHandle_ExistingNodeAffinity_Merged(t *testing.T) {
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
 				},
 			}},
-			Affinity: &corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-							MatchExpressions: []corev1.NodeSelectorRequirement{{
-								Key:      "topology.kubernetes.io/zone",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"us-east-1a"},
-							}},
-						}},
-					},
-				},
-			},
+			NodeSelector: map[string]string{"disktype": "ssd"},
 		},
 	}
 
@@ -229,17 +217,20 @@ func TestHandle_ExistingNodeAffinity_Merged(t *testing.T) {
 	if err := json.Unmarshal(resp.Response.Patch, &ops); err != nil {
 		t.Fatalf("decode patch: %v", err)
 	}
-	// Should append to the existing term's matchExpressions (not replace the whole affinity).
 	if len(ops) != 1 {
-		t.Fatalf("expected 1 patch op for 1 existing term, got %d: %v", len(ops), ops)
+		t.Fatalf("expected 1 patch op, got %d: %v", len(ops), ops)
 	}
-	expected := "/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms/0/matchExpressions/-"
+	// '/' in the key is escaped as '~1' per RFC 6901.
+	expected := "/spec/nodeSelector/kubernetes.io~1hostname"
 	if ops[0]["path"] != expected {
 		t.Errorf("expected patch path %s, got %s", expected, ops[0]["path"])
 	}
+	if ops[0]["value"] != "node-with-disk" {
+		t.Errorf("expected patch value node-with-disk, got %v", ops[0]["value"])
+	}
 }
 
-func TestHandle_NilNodeAffinity_WithPodAffinity(t *testing.T) {
+func TestHandle_ExistingAffinity_NodeSelectorAdded(t *testing.T) {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "my-pvc",
@@ -261,7 +252,7 @@ func TestHandle_NilNodeAffinity_WithPodAffinity(t *testing.T) {
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
 				},
 			}},
-			// Affinity exists but NodeAffinity is nil.
+			// Pod has existing affinity but no nodeSelector: webhook adds nodeSelector independently.
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{},
 			},
@@ -278,7 +269,7 @@ func TestHandle_NilNodeAffinity_WithPodAffinity(t *testing.T) {
 	if err := json.Unmarshal(resp.Response.Patch, &ops); err != nil {
 		t.Fatalf("decode patch: %v", err)
 	}
-	if len(ops) != 1 || ops[0]["path"] != "/spec/affinity/nodeAffinity" {
-		t.Errorf("expected single patch at /spec/affinity/nodeAffinity, got: %v", ops)
+	if len(ops) != 1 || ops[0]["path"] != "/spec/nodeSelector" {
+		t.Errorf("expected single patch at /spec/nodeSelector, got: %v", ops)
 	}
 }
