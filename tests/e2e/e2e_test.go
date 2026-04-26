@@ -2,8 +2,10 @@ package e2e_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/cubbitgg/kubernetes-external-provider/tests/e2e/utilities"
 	"github.com/kudobuilder/kuttl/pkg/apis/testharness/v1beta1"
 	"github.com/kudobuilder/kuttl/pkg/test"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -20,6 +22,8 @@ func TestE2E(t *testing.T) {
 		version = "latest"
 	}
 
+	artifactsDir := "./artifacts"
+
 	testSuite := v1beta1.TestSuite{
 		TestDirs:    []string{"./testdata"},
 		StartKIND:   true,
@@ -30,10 +34,13 @@ func TestE2E(t *testing.T) {
 			"docker.io/gigiozzz/local-disk-webhook:" + version,
 		},
 		//SkipClusterDelete: true,
-		SkipDelete: true,
-		Namespace:  "kuttl-e2e",
-		Timeout:    60,
-		Parallel:   1,
+		SkipDelete:   true,
+		Namespace:    "kuttl-e2e",
+		Timeout:      60,
+		Parallel:     1,
+		ArtifactsDir: artifactsDir,
+		ReportFormat: "JSON",
+		ReportName:   "kuttl-report",
 	}
 
 	harness := test.Harness{
@@ -44,4 +51,11 @@ func TestE2E(t *testing.T) {
 	log.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(os.Stdout)))
 	harness.Run()
 	harness.Report()
+
+	if err := utilities.ConvertKuttlReportToCTRF(t,
+		filepath.Join(artifactsDir, "kuttl-report.json"),
+		filepath.Join(artifactsDir, "ctrf-report.json"),
+	); err != nil {
+		t.Logf("WARNING: failed to generate CTRF report: %v", err)
+	}
 }

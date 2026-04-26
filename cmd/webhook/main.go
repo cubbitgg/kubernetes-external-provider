@@ -19,17 +19,17 @@ import (
 )
 
 const (
-	webhookConfigName = "local-disk-webhook"
-	webhookEntryName  = "disk-affinity.agent.cubbit.io"
-	webhookSecretName = "local-disk-webhook-tls"
+	webhookConfigName  = "local-disk-webhook"
+	webhookEntryName   = "disk-affinity.agent.cubbit.io"
+	webhookSecretName  = "local-disk-webhook-tls"
 	webhookServiceName = "local-disk-webhook"
-	webhookNamespace  = "kube-system"
+	webhookNamespace   = "kube-system"
 )
 
 func main() {
-	addr     := flag.String("addr", ":8443", "HTTPS listen address")
+	addr := flag.String("addr", ":8443", "HTTPS listen address")
 	certFile := flag.String("tls-cert", "/certs/tls.crt", "TLS certificate file (unused when --self-sign is set)")
-	keyFile  := flag.String("tls-key", "/certs/tls.key", "TLS private key file (unused when --self-sign is set)")
+	keyFile := flag.String("tls-key", "/certs/tls.key", "TLS private key file (unused when --self-sign is set)")
 	selfSign := flag.Bool("self-sign", false, "Generate a self-signed certificate, store it in a Kubernetes Secret, and patch the MutatingWebhookConfiguration")
 	logLevel := flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
@@ -86,7 +86,11 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mutate", wh.Handle)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintln(w, "ok")
+		_, err := fmt.Fprintln(w, "ok")
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to write healthz response")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	})
 
 	srv := &http.Server{

@@ -3,6 +3,7 @@ module github.com/cubbitgg/kubernetes-external-provider
 go 1.25.0
 
 require (
+	github.com/ctrf-io/go-ctrf-json-reporter v0.0.15
 	github.com/cubbitgg/cmd-drivers v0.0.0-20260419142358-363b1d012633
 	github.com/kudobuilder/kuttl v0.22.0
 	github.com/rs/zerolog v1.34.0

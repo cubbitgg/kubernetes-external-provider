@@ -1,13 +1,15 @@
-REGISTRY   ?= docker.io/gigiozzz
-VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS    := -ldflags="-s -w -X main.version=$(VERSION)"
+REGISTRY             ?= docker.io/gigiozzz
+VERSION              ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS              := -ldflags="-s -w -X main.version=$(VERSION)"
+GOLANGCI_LINT_VERSION ?= v2.1.6
 
 PROVISIONER_IMG  = $(REGISTRY)/local-disk-provisioner:$(VERSION)
 NODE_SCANNER_IMG = $(REGISTRY)/local-disk-node-scanner:$(VERSION)
 WEBHOOK_IMG      = $(REGISTRY)/local-disk-webhook:$(VERSION)
 
 .PHONY: all build build-provisioner build-scanner build-webhook \
-        docker-build docker-push test lint clean \
+        docker-build docker-push docker-save docker-load \
+        test unit-test lint lint-install check clean \
         e2e e2e-run
 
 all: build
@@ -52,9 +54,30 @@ docker-push-webhook:
 test:
 	go test ./... -v -race
 
-## Run linter (requires golangci-lint)
-lint:
+## Run unit tests only (excludes e2e)
+unit-test:
+	go test ./internal/... -v -race
+
+## Install golangci-lint if not already present
+lint-install:
+	@which golangci-lint > /dev/null 2>&1 || \
+		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+## Run linter (auto-installs golangci-lint if missing)
+lint: lint-install
 	golangci-lint run ./...
+
+## Run lint + go vet
+check: lint
+	go vet ./...
+
+## Save provisioner and webhook images to a tar archive for CI transfer
+docker-save: docker-build-provisioner docker-build-webhook
+	docker save $(PROVISIONER_IMG) $(WEBHOOK_IMG) -o /tmp/docker-images.tar
+
+## Load images from tar archive (produced by docker-save)
+docker-load:
+	docker load -i /tmp/docker-images.tar
 
 ## Remove built binaries
 clean:
