@@ -2,12 +2,13 @@ REGISTRY   ?= docker.io/gigiozzz
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS    := -ldflags="-s -w -X main.version=$(VERSION)"
 
-PROVISIONER_IMG  := $(REGISTRY)/local-disk-provisioner:$(VERSION)
-NODE_SCANNER_IMG := $(REGISTRY)/local-disk-node-scanner:$(VERSION)
-WEBHOOK_IMG      := $(REGISTRY)/local-disk-webhook:$(VERSION)
+PROVISIONER_IMG  = $(REGISTRY)/local-disk-provisioner:$(VERSION)
+NODE_SCANNER_IMG = $(REGISTRY)/local-disk-node-scanner:$(VERSION)
+WEBHOOK_IMG      = $(REGISTRY)/local-disk-webhook:$(VERSION)
 
 .PHONY: all build build-provisioner build-scanner build-webhook \
-        docker-build docker-push test lint clean
+        docker-build docker-push test lint clean \
+        e2e e2e-run
 
 all: build
 
@@ -58,3 +59,14 @@ lint:
 ## Remove built binaries
 clean:
 	rm -rf bin/
+
+## Run kuttl e2e tests: builds images, spins up kind cluster, deploys, runs tests
+## Override VERSION to tag images differently (e.g. make e2e VERSION=v1.2.3).
+## Default is 'latest', which matches the image refs in testdata/00-common-setup/00-deploy.yaml.
+e2e: VERSION = latest
+e2e: docker-build-provisioner docker-build-webhook
+	E2E_VERSION=$(VERSION) KUTTL_TEST=true go test ./tests/e2e/... -v -timeout 300s -count=1
+
+## Run e2e tests without rebuilding images (for faster iteration)
+e2e-run:
+	KUTTL_TEST=true go test ./tests/e2e/... -v -timeout 300s -count=1

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: no-uuid-pvc
+  annotations:
+    agent.cubbit.io/disk-uuid: "ffffffff-ffff-ffff-ffff-ffffffffffff"
+spec:
+  storageClassName: local-disk
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,5 @@
+# Assert that the pod does NOT exist -- the webhook must have rejected its creation.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rejected-pod

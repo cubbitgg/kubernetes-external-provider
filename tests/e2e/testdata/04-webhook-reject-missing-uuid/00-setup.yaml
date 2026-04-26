@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: missing-uuid-pvc
+  annotations:
+    # No node in the cluster has a label for this UUID.
+    agent.cubbit.io/disk-uuid: "99998888-7777-6666-5555-444433332222"
+spec:
+  storageClassName: local-disk
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

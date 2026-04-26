@@ -1,0 +1,6 @@
+# Pod must exist - if the webhook rejected it, it would not be created.
+# We don't assert Running status since scheduling depends on node resources.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: passthrough-pod

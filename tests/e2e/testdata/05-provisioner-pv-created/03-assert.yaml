@@ -1,0 +1,18 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+commands:
+  - script: |
+      PV_NAME=$(kubectl get pvc provisioner-test-pvc -n "$NAMESPACE" -o jsonpath='{.spec.volumeName}')
+      [ -n "$PV_NAME" ] || { echo "ERROR: PVC has no volumeName"; exit 1; }
+
+      LOCAL_PATH=$(kubectl get pv "$PV_NAME" -o jsonpath='{.spec.local.path}')
+      EXPECTED_PATH="/mnt/cubbit/11112222-3333-4444-5555-666677778888"
+      [ "$LOCAL_PATH" = "$EXPECTED_PATH" ] || { echo "ERROR: wrong local path: got '$LOCAL_PATH', want '$EXPECTED_PATH'"; exit 1; }
+
+      NODE_VAL=$(kubectl get pv "$PV_NAME" -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}')
+      [ "$NODE_VAL" = "kuttl-e2e-worker" ] || { echo "ERROR: wrong nodeAffinity node: got '$NODE_VAL', want 'kuttl-e2e-worker'"; exit 1; }
+
+      PROV=$(kubectl get pv "$PV_NAME" -o jsonpath='{.metadata.annotations.agent\.cubbit\.io/provisioned-by}')
+      [ "$PROV" = "agent.cubbit.io/local-disk" ] || { echo "ERROR: wrong provisioned-by annotation: got '$PROV'"; exit 1; }
+
+      echo "PV $PV_NAME validated: path=$LOCAL_PATH node=$NODE_VAL provisioner=$PROV"

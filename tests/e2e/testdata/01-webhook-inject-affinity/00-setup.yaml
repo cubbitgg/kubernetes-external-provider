@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl label node kuttl-e2e-control-plane agent.cubbit.io/has-uuid-aaaabbbb-cccc-dddd-eeee-ffffffffffff=true --overwrite
+  - command: |
+      kubectl annotate node kuttl-e2e-control-plane agent.cubbit.io/disk-uuid-map='{"aaaabbbb-cccc-dddd-eeee-ffffffffffff":{"path":"/mnt/cubbit/aaaabbbb-cccc-dddd-eeee-ffffffffffff","size":1073741824}}' --overwrite

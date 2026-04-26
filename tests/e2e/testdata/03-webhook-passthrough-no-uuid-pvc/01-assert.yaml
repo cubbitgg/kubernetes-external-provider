@@ -1,0 +1,5 @@
+# Pod must exist - the webhook must have allowed it through since the PVC has no UUID annotation.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: passthrough-uuid-pod

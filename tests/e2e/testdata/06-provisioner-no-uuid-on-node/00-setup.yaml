@@ -1,0 +1,9 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # The node has the UUID label (so the webhook allows the pod through and
+  # injects nodeAffinity), but the disk-map annotation does NOT include this UUID
+  # (so the provisioner returns ProvisioningReschedule and the PV is never created).
+  - command: kubectl label node kuttl-e2e-worker agent.cubbit.io/has-uuid-ffffffff-ffff-ffff-ffff-ffffffffffff=true --overwrite
+  - command: |
+      kubectl annotate node kuttl-e2e-worker agent.cubbit.io/disk-uuid-map='{"other-uuid":{"path":"/mnt/cubbit/other-uuid","size":500000000}}' --overwrite

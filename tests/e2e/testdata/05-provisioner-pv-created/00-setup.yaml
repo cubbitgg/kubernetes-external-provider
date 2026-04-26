@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl label node kuttl-e2e-worker agent.cubbit.io/has-uuid-11112222-3333-4444-5555-666677778888=true --overwrite
+  - command: |
+      kubectl annotate node kuttl-e2e-worker agent.cubbit.io/disk-uuid-map='{"11112222-3333-4444-5555-666677778888":{"path":"/mnt/cubbit/11112222-3333-4444-5555-666677778888","size":1073741824}}' --overwrite

@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+# The provisioner returns ProvisioningReschedule so the PV is never created.
+# We sleep briefly then confirm the PVC is still Pending (not Bound).
+commands:
+  - script: |
+      sleep 15
+      PHASE=$(kubectl get pvc no-uuid-pvc -n "$NAMESPACE" -o jsonpath='{.status.phase}')
+      if [ "$PHASE" = "Bound" ]; then
+        echo "ERROR: PVC should remain Pending but is Bound (unexpected PV was created)"
+        exit 1
+      fi
+      echo "PVC correctly remains in phase: $PHASE"
