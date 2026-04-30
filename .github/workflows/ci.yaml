@@ -16,8 +16,12 @@ env:
 
 jobs:
   check:
-    name: Lint & Vet
+    name: "Lint & Vet: ${{ matrix.module }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [commonlib, cmd-drivers, node-scanner, provisioner, webhook]
     steps:
       - uses: actions/checkout@v4
 
@@ -25,28 +29,63 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Run check
-        run: make check
+      - name: Run go vet
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
 
-  build:
-    name: Build Docker Images
+  build-provisioner:
+    name: Build Provisioner Image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and save images
-        run: make docker-save VERSION=latest
+      - name: Build provisioner Docker image
+        run: docker build -f provisioner/Dockerfile -t local-disk-provisioner:latest .
+
+      - name: Save provisioner image
+        run: docker save local-disk-provisioner:latest -o /tmp/provisioner.tar
 
       - uses: actions/upload-artifact@v4
         with:
-          name: docker-images
-          path: /tmp/docker-images.tar
+          name: provisioner-image
+          path: /tmp/provisioner.tar
           retention-days: 1
 
-  test:
-    name: Unit Tests
-    needs: [check, build]
+  build-webhook:
+    name: Build Webhook Image
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build webhook Docker image
+        run: docker build -f webhook/Dockerfile -t local-disk-webhook:latest .
+
+      - name: Save webhook image
+        run: docker save local-disk-webhook:latest -o /tmp/webhook.tar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webhook-image
+          path: /tmp/webhook.tar
+          retention-days: 1
+
+  build-scanner:
+    name: Build Node Scanner Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build node-scanner Docker image
+        run: docker build -f node-scanner/Dockerfile -t local-disk-node-scanner:latest .
+
+  unit-test:
+    name: "Unit Tests: ${{ matrix.module }}"
+    needs: [check]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [cmd-drivers, provisioner, webhook]
     steps:
       - uses: actions/checkout@v4
 
@@ -55,11 +94,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Run unit tests
-        run: make unit-test
+        working-directory: ${{ matrix.module }}
+        run: go test ./... -v -race
 
   e2e-test:
     name: E2E Tests
-    needs: [test]
+    needs: [unit-test, build-provisioner, build-webhook]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,11 +110,20 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: docker-images
+          name: provisioner-image
+          path: /tmp
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: webhook-image
           path: /tmp
 
       - name: Load Docker images
-        run: make docker-load
+        run: |
+          docker load -i /tmp/provisioner.tar
+          docker load -i /tmp/webhook.tar
+          docker tag local-disk-provisioner:latest docker.io/gigiozzz/local-disk-provisioner:latest
+          docker tag local-disk-webhook:latest docker.io/gigiozzz/local-disk-webhook:latest
 
       - name: Run E2E tests
         id: e2e

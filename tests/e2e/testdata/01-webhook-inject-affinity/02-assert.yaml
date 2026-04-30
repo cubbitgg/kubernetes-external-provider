@@ -3,12 +3,5 @@ kind: Pod
 metadata:
   name: test-pod
 spec:
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: kubernetes.io/hostname
-                operator: In
-                values:
-                  - kuttl-e2e-control-plane
+  nodeSelector:
+    kubernetes.io/hostname: kuttl-e2e-control-plane

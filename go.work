@@ -1,0 +1,10 @@
+go 1.25.0
+
+use (
+	./cmd-drivers
+	./commonlib
+	./node-scanner
+	./provisioner
+	./tests/e2e
+	./webhook
+)

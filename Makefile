@@ -7,6 +7,8 @@ PROVISIONER_IMG  = $(REGISTRY)/local-disk-provisioner:$(VERSION)
 NODE_SCANNER_IMG = $(REGISTRY)/local-disk-node-scanner:$(VERSION)
 WEBHOOK_IMG      = $(REGISTRY)/local-disk-webhook:$(VERSION)
 
+MODULES = commonlib cmd-drivers node-scanner provisioner webhook
+
 .PHONY: all build build-provisioner build-scanner build-webhook \
         docker-build docker-push docker-save docker-load \
         test unit-test lint lint-install check clean \
@@ -18,25 +20,25 @@ all: build
 build: build-provisioner build-scanner build-webhook
 
 build-provisioner:
-	CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o bin/provisioner ./cmd/provisioner
+	cd provisioner && CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o ../bin/provisioner ./cmd
 
 build-scanner:
-	CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o bin/node-scanner ./cmd/node-scanner
+	cd node-scanner && CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o ../bin/node-scanner ./cmd
 
 build-webhook:
-	CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o bin/webhook ./cmd/webhook
+	cd webhook && CGO_ENABLED=0 GOOS=linux go build $(LDFLAGS) -o ../bin/webhook ./cmd
 
 ## Build all Docker images
 docker-build: docker-build-provisioner docker-build-scanner docker-build-webhook
 
 docker-build-provisioner:
-	docker build -f Dockerfile.provisioner -t $(PROVISIONER_IMG) .
+	docker build -f provisioner/Dockerfile -t $(PROVISIONER_IMG) .
 
 docker-build-scanner:
-	docker build -f Dockerfile.node-scanner -t $(NODE_SCANNER_IMG) .
+	docker build -f node-scanner/Dockerfile -t $(NODE_SCANNER_IMG) .
 
 docker-build-webhook:
-	docker build -f Dockerfile.webhook -t $(WEBHOOK_IMG) .
+	docker build -f webhook/Dockerfile -t $(WEBHOOK_IMG) .
 
 ## Push all Docker images
 docker-push: docker-push-provisioner docker-push-scanner docker-push-webhook
@@ -50,26 +52,37 @@ docker-push-scanner:
 docker-push-webhook:
 	docker push $(WEBHOOK_IMG)
 
-## Run tests
+## Run all tests across all modules
 test:
-	go test ./... -v -race
+	@for m in $(MODULES); do \
+		echo "=== Testing $$m ===" && \
+		(cd $$m && go test ./... -v -race) || exit 1; \
+	done
 
-## Run unit tests only (excludes e2e)
+## Run unit tests for modules with test files (cmd-drivers, provisioner, webhook)
 unit-test:
-	go test ./internal/... -v -race
+	@for m in cmd-drivers provisioner webhook; do \
+		echo "=== Unit Testing $$m ===" && \
+		(cd $$m && go test ./... -v -race) || exit 1; \
+	done
 
 ## Install golangci-lint if not already present
 lint-install:
 	@which golangci-lint > /dev/null 2>&1 || \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-## Run linter (auto-installs golangci-lint if missing)
+## Run linter for all modules
 lint: lint-install
-	golangci-lint run ./...
+	@for m in $(MODULES); do \
+		echo "=== Linting $$m ===" && \
+		(cd $$m && golangci-lint run ./...) || exit 1; \
+	done
 
-## Run lint + go vet
+## Run lint + go vet for all modules
 check: lint
-	go vet ./...
+	@for m in $(MODULES); do \
+		(cd $$m && go vet ./...) || exit 1; \
+	done
 
 ## Save provisioner and webhook images to a tar archive for CI transfer
 docker-save: docker-build-provisioner docker-build-webhook
